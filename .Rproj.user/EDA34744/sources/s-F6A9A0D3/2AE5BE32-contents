@@ -1,0 +1,112 @@
+# reading the data
+require(readxl)
+require(dplyr)
+require(CSGo)
+require(ggplot2)
+require(caret)
+require(ggpubr)
+require(corrplot)
+
+# reading the data
+df <- readxl::read_excel('data/data_2021.xlsx')
+
+# exploratory
+test <- df %>%
+  group_by(id) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) %>%
+  arrange(desc(n))
+
+## removing ID duplicates
+data <- df %>%
+  group_by(id) %>%
+  filter(date == max(date)) %>%
+  ungroup()
+
+
+## divide dataset in train and test
+
+# create Data Partition
+set.seed(1992)
+intrain <- createDataPartition(data$price, p = 0.8, list = FALSE)
+
+db_train <- data[intrain,]
+db_test <- data[-intrain,]
+
+
+## descriptive continuous variables
+
+avg <- round(mean(db_train$price),2)
+median <- round(median(db_train$price),2)
+
+# histogram and density
+db_train %>%
+  ggplot(aes(x = price)) +
+  geom_histogram(
+    aes(y = ..density..),
+    bins = 30, 
+    fill = "#509997", 
+    color = "black") +
+  geom_density(color = "#761954", size = 1) +
+  geom_vline(
+    xintercept = avg, 
+    linetype = "dashed", 
+    color = "#c62d64",
+    size = 1.5) +
+  geom_text(aes(avg, 0, label = paste("Average:", avg), hjust = -0.2, vjust = -1), color = "#c62d64") +
+  geom_vline(
+    xintercept = median, 
+    linetype = "dotted", 
+    color = "#87ca9d",
+    size = 1.5) +
+  geom_text(aes(median, 0, label = paste("Median:", median), hjust = 1.2, vjust = -1), color = "#87ca9d") +
+  ggtitle("Distribution of player's age") +
+  CSGo::theme_csgo() +
+  ylab("Price (USD)") +
+  xlab("Density")
+
+
+
+
+# qqplot
+db_train %>% 
+  ggqqplot(
+    x = "price",
+    color = "#761954",
+    ggtheme = CSGo::theme_csgo()) +
+  ggtitle("Normal qqplot")
+
+
+
+# categories
+
+db_train <- db_train %>%
+  mutate(
+    bedrooms_cat = ifelse(bedrooms >=8, "more than 8", as.factor(bedrooms))
+  )
+
+db_train <- db_train %>%
+  mutate(
+    bathrooms = as.numeric(bathrooms),
+    
+    bathrooms_cat = as.factor(case_when(
+      bathrooms >= 4 ~ "more than 4",
+      bathrooms < 1 ~ "less than 1",
+      TRUE ~ as.character(bathrooms))
+    ))
+
+
+db_train_contin <- db_train %>%
+  select(
+    price,
+    sqft_living,
+    sqft_lot,
+    sqft_above,
+    sqft_basement
+  )
+
+# correlation
+cor_result <- cor(db_train_contin, method = "pearson")
+
+corrplot::corrplot.mixed(cor_result)
+

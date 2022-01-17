@@ -1,0 +1,27 @@
+{
+    "id": "089D3FDE",
+    "path": "~/Documents/master/regression_models/modelling_competition/report/report_team_beta.Rmd",
+    "project_path": "report/report_team_beta.Rmd",
+    "type": "r_markdown",
+    "hash": "3971136780",
+    "contents": "",
+    "dirty": false,
+    "created": 1642337249215.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "743,0",
+        "scrollLine": "719",
+        "last_setup_crc32": "F6A9A0D3183d17fa"
+    },
+    "folds": "81|72|94|0|\n101|72|108|0|\n112|71|122|0|\n140|71|173|0|\n177|72|188|0|\n199|71|230|0|\n239|71|270|0|\n279|71|310|0|\n321|71|352|0|\n364|71|368|0|\n374|71|393|0|\n403|71|407|0|\n413|71|437|0|\n447|71|451|0|\n457|71|478|0|\n488|71|492|0|\n498|71|513|0|\n523|71|527|0|\n531|71|551|0|\n561|71|565|0|\n569|71|589|0|\n599|71|603|0|\n607|71|632|0|\n677|71|689|0|\n693|71|697|0|\n701|71|705|0|\n747|71|753|0|\n",
+    "lastKnownWriteTime": 1642354187,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1642354187228,
+    "read_only": false,
+    "read_only_alternatives": []
+}
