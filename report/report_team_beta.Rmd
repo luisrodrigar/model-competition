@@ -659,6 +659,32 @@ corrplot::corrplot.mixed(cor_result)
 
 > It is possible to see that sqft_living and sqft_above presented a high correlation (0.88), so to avoid multicolinearty problems we will not consider the sqft_above in our model, this choice is also based on that the sqft_living has the higher correlation to our target variable (price) compared to sqft_above.
 
+### Transformation 
+
+```{r}
+library(reshape2)
+
+db_train = db_train %>% 
+  mutate(
+    sqft_living = log(sqft_living)
+    , sqft_lot = log(sqft_lot)
+    , sqft_above = log(sqft_above)
+    , sqft_basement = log(sqft_basement)
+    , sqft_living15 = log(sqft_living15)
+    , sqft_lot15 = log(sqft_living15)
+  )
+
+db_train %>% 
+  select_if(is.numeric) %>%
+  melt() %>% 
+  ggplot(
+    aes (x = value, col = variable) 
+  ) + 
+  geom_density() +
+  facet_wrap(~variable, scales = "free")
+
+```
+
 
 
 # Modelling
