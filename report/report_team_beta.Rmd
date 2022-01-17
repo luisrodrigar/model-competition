@@ -22,7 +22,6 @@ require(CSGo)
 require(readxl)
 require(caret)
 require(corrplot)
-
 ```
 
 
@@ -434,7 +433,6 @@ db_train %>%
   CSGo::scale_fill_csgo()+
   CSGo::theme_csgo()
  
-
 ```
 
 > The boxplot shows that the bigger the number of bathrooms bigger the price.
@@ -672,7 +670,16 @@ db_train = db_train %>%
     , sqft_basement = log(sqft_basement)
     , sqft_living15 = log(sqft_living15)
     , sqft_lot15 = log(sqft_living15)
-  )
+    , bathrooms = as.numeric(bathrooms)
+    , bedrooms = as.numeric(bedrooms)
+    , floors = as.numeric(floors)
+    , waterfront = as.numeric(as.factor(db_train$waterfront)) - 1 #False = 0; True = 1; 
+    , lat = as.numeric(lat)  
+    , long = as.numeric(long)
+    , price = log(price)
+  ) 
+
+sort(unique(db_train$zipcode))
 
 db_train %>% 
   select_if(is.numeric) %>%
@@ -683,8 +690,18 @@ db_train %>%
   geom_density() +
   facet_wrap(~variable, scales = "free")
 
+ifelse(
+  db_train$lat > 100
+  , 1
+  , 0
+)
+
+#table(substr(db_train$zipcode, 1, 3))
 ```
 
+```{r}
+pairs(data %>% select_if(is.numeric) %>% select(-sqft_above)) 
+```
 
 
 # Modelling
