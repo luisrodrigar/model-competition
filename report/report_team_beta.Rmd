@@ -3,7 +3,7 @@ title: "Modelling Competition- Team Beta"
 author: "Adson Costanzi, Javier Fong, LA, Javich"
 date: "January 16^th^, 2021"
 output: 
-  pdf_document:
+  html_document:
     code_folding: show
     toc: true
     toc_float: true
