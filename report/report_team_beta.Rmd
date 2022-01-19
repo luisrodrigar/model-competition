@@ -721,7 +721,7 @@ pairs(data %>% select_if(is.numeric) %>% select(-sqft_above))
 ```
 
 
-# Modelling
+## Modelling
 
 In this session we will train a linear regression to predict our target variable *price*. We will also run a step wise selection.
 
@@ -765,7 +765,7 @@ mod$results
 
 ```
 
-# Model Evaluation
+## Model Evaluation
 
 In this session we are going to apply the model above in our test data set to see how it performs in a new data set.
 
@@ -814,14 +814,17 @@ db_test %>% ggplot(aes(x = price, y = pred)) +
 ```
 
 
-# Conclusion 
+## Conclusion 
 
 The model developed to predict the price was considered satisfactory. However the use and understanding of new variables or transformation would improve our results.
 
-# GMA 
+# Generalized Additive Models
+
+As we saw in the previous step, we realized that the relationship between the predictors and the response variable, in many cases, is not linear. Therefore, we are going to using the _Generalized Additive Models_ to see if this type of regression fits the data properly. 
 
 ## Densities
-Densities at the beggining and transformation 
+
+Let's plot the densities function for each predictor at the very beginning: 
 
 ```{r, message=F, warning=F}
 db_train %>% 
@@ -834,6 +837,12 @@ db_train %>%
 ) +
   geom_density() +
   facet_wrap(~variable, scales = "free")
+
+```
+
+There are some cases where some transformation are recommended, let's plot the density functions after this:
+
+```{r}
 
 db_train = db_train %>% 
   mutate(
@@ -858,8 +867,9 @@ db_train %>%
 
 ```
 
-## Remove Collinearity 
-Remove variables to prevent collinearity 
+## Dealing with Collinearity 
+
+As we can see in the next correlation plot, there are some variables that are high correlated. Thus, in order to prevent collinearity, we are going to remove some variables:
 
 ```{r, message=F, warning=F}
 corrplot(
@@ -878,7 +888,7 @@ db_train = db_train %>% dplyr::select(-grade, -sqft_above, -sqft_lot, -sqft_livi
 
 ## Relationship between response and covariates
 
-Check for relationship between response and covariates
+In the next plots, we are going to see relationship between the response and the covariates.
 
 ```{r, message=F, warning=F}
 db_train %>% 
@@ -891,9 +901,11 @@ db_train %>%
   geom_smooth() +
   facet_wrap(~variable, scale = "free")
 ```  
-No linear relationship between price and the covariates. 
+As we can see in the plots above, there is no linear relationship between price and the covariates. 
 
 ## Model Building (Step by step)
+
+Let's train a model which provides a good behavior under the conditions mentioned above.
 
 ```{r}
 library(AICcmodavg)
