@@ -23,6 +23,7 @@ require(readxl)
 require(caret)
 require(corrplot)
 
+library(reshape2)
 ```
 
 
@@ -117,15 +118,35 @@ require(caret)
 set.seed(1992)
 intrain <- createDataPartition(data$price, p = 0.8, list = FALSE)
 
-db_train <- data[intrain,]
-db_test <- data[-intrain,]
-
+db_train_raw <- data[intrain,]
+db_test_raw <- data[-intrain,]
 ```
 
 
 ## Basic Descriptive
 
 In order to understand and summarize our target variable data set we are going to perform some descriptive analysis in our train data set as follows.
+
+```{r, message=F, warning=F}
+library(GGally)
+
+roundUp <- function(x) 10^ceiling(log10(x))
+
+db_train = db_train_raw %>% 
+  mutate(
+    bathrooms = as.numeric(bathrooms)
+    , floors = as.numeric(floors)
+    , waterfront = as.factor(as.numeric(as.factor(waterfront)) - 1)
+    , lat = as.numeric(lat)
+    , long = as.numeric(long)
+  ) %>% 
+  mutate(
+    lat = lat / (roundUp(abs(lat / 47))/10)
+    , long = long / (roundUp(abs(long / 120))/10)
+  ) %>% 
+  dplyr::select(-id, -date) %>% 
+  data.frame()
+```
 
 
 ### Continuous Variables
@@ -434,7 +455,6 @@ db_train %>%
   CSGo::scale_fill_csgo()+
   CSGo::theme_csgo()
  
-
 ```
 
 > The boxplot shows that the bigger the number of bathrooms bigger the price.
@@ -663,7 +683,6 @@ corrplot::corrplot.mixed(cor_result)
 
 ```{r}
 library(reshape2)
-
 db_train = db_train %>% 
   mutate(
     sqft_living = log(sqft_living)
@@ -672,8 +691,15 @@ db_train = db_train %>%
     , sqft_basement = log(sqft_basement)
     , sqft_living15 = log(sqft_living15)
     , sqft_lot15 = log(sqft_living15)
-  )
-
+    , bathrooms = as.numeric(bathrooms)
+    , bedrooms = as.numeric(bedrooms)
+    , floors = as.numeric(floors)
+    , waterfront = as.numeric(as.factor(db_train$waterfront)) - 1 #False = 0; True = 1; 
+    , lat = as.numeric(lat)  
+    , long = as.numeric(long)
+    , price = log(price)
+  ) 
+sort(unique(db_train$zipcode))
 db_train %>% 
   select_if(is.numeric) %>%
   melt() %>% 
@@ -682,9 +708,17 @@ db_train %>%
   ) + 
   geom_density() +
   facet_wrap(~variable, scales = "free")
-
+ifelse(
+  db_train$lat > 100
+  , 1
+  , 0
+)
+#table(substr(db_train$zipcode, 1, 3))
 ```
 
+```{r}
+pairs(data %>% select_if(is.numeric) %>% select(-sqft_above)) 
+```
 
 
 # Modelling
@@ -784,3 +818,416 @@ db_test %>% ggplot(aes(x = price, y = pred)) +
 
 The model developed to predict the price was considered satisfactory. However the use and understanding of new variables or transformation would improve our results.
 
+# GMA 
+
+## Densities
+Densities at the beggining and transformation 
+
+```{r, message=F, warning=F}
+db_train %>% 
+  melt() %>% 
+  ggplot(
+    aes(
+    x = value
+    , col = variable
+    )
+) +
+  geom_density() +
+  facet_wrap(~variable, scales = "free")
+
+db_train = db_train %>% 
+  mutate(
+    sqft_living = log(sqft_living)
+    , sqft_lot = log(sqft_lot)
+    , sqft_above = log(sqft_above)
+    , sqft_living15 = log(sqft_living15)
+    , sqft_lot15 = log(sqft_lot15)
+    , has_basement = as.factor(ifelse(db_train$sqft_basement > 0, 1, 0))
+  )
+
+db_train %>% 
+  melt() %>% 
+  ggplot(
+    aes(
+    x = value
+    , col = variable
+    )
+) +
+  geom_density() +
+  facet_wrap(~variable, scales = "free")
+
+```
+
+## Remove Collinearity 
+Remove variables to prevent collinearity 
+
+```{r, message=F, warning=F}
+corrplot(
+  cor(db_train %>% select_if(is.numeric))
+  , order = "hclust"
+)
+
+#Remove highly correlated variables to prevent collinearity 
+corrplot(
+  cor(db_train %>% dplyr::select(-grade, -sqft_above, -sqft_lot, -sqft_living) %>% select_if(is.numeric))
+  , order = "hclust"
+)
+
+db_train = db_train %>% dplyr::select(-grade, -sqft_above, -sqft_lot, -sqft_living)
+```
+
+## Relationship between response and covariates
+
+Check for relationship between response and covariates
+
+```{r, message=F, warning=F}
+db_train %>% 
+  select_if(is.numeric) %>%
+  melt(id = "price") %>% 
+  ggplot(
+    aes(y = price, x = value)
+  ) + 
+  geom_point() + 
+  geom_smooth() +
+  facet_wrap(~variable, scale = "free")
+```  
+No linear relationship between price and the covariates. 
+
+## Model Building (Step by step)
+
+```{r}
+library(AICcmodavg)
+library(mgcv)
+library(survival)
+library(visreg)
+#Highest Correlated Variable
+model.gam.liv = mgcv::gam(log(price) ~ s(sqft_living15), data = db_train)
+summary(model.gam.liv)
+anova(model.gam.liv)
+visreg(model.gam.liv, "sqft_living15")
+```
+
+
+```{r}
+model.gam.liv.bat = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms)
+  , data = db_train)
+
+summary(model.gam.liv.bat)
+anova(model.gam.liv, model.gam.liv.bat)
+
+visreg(model.gam.liv.bat, "sqft_living15")
+visreg(model.gam.liv.bat, "bathrooms")
+```
+
+
+```{r}
+model.gam.liv.bat.view = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view
+  , data = db_train)
+
+summary(model.gam.liv.bat.view)
+
+visreg(model.gam.liv.bat.view, "sqft_living15")
+visreg(model.gam.liv.bat.view, "bathrooms")
+
+
+anova(model.gam.liv.bat, model.gam.liv.bat.view)
+
+
+rbind(
+  c("~living15", AIC(model.gam.liv)) 
+  , c("~living15 + bathrooms", AIC(model.gam.liv.bat))
+  , c("~living15 + bathrooms + view", AIC(model.gam.liv.bat.view))
+)
+```
+```{r}
+model.gam.liv.bat.view.cbase = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase)
+anova( model.gam.liv.bat.view, model.gam.liv.bat.view.cbase)
+
+
+model.gam.liv.bat.view.fbase = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    has_basement
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.fbase)
+anova(model.gam.liv.bat.view.cbase, model.gam.liv.bat.view.fbase)
+
+rbind(
+  c("~living15", AIC(model.gam.liv)) 
+  , c("~living15 + bathrooms", AIC(model.gam.liv.bat))
+  , c("~living15 + bathrooms + view", AIC(model.gam.liv.bat.view))
+  , c("~living15 + bathrooms + view + sqft_basement", AIC(model.gam.liv.bat.view.cbase))
+  , c("~living15 + bathrooms + view + has_basement", AIC(model.gam.liv.bat.view.fbase))
+)
+```
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf)
+anova(model.gam.liv.bat.view.cbase, model.gam.liv.bat.view.cbase.wtf)
+
+AIC(model.gam.liv.bat.view.cbase)
+AIC(model.gam.liv.bat.view.cbase.wtf)
+```
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf2 = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms, by = waterfront) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront
+  , data = db_train)
+
+anova(model.gam.liv.bat.view.cbase.wtf,model.gam.liv.bat.view.cbase.wtf2)
+AIC(model.gam.liv.bat.view.cbase.wtf)
+AIC(model.gam.liv.bat.view.cbase.wtf2)
+```  
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf2.bed = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms, by = waterfront) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf2)
+anova(model.gam.liv.bat.view.cbase.wtf2.bed)
+AIC(model.gam.liv.bat.view.cbase.wtf2)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed)
+
+```
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf2.bed.flo = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms, by = waterfront) + 
+    view + 
+    s(sqft_basement, by = waterfront) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf2.bed.flo)
+anova(model.gam.liv.bat.view.cbase.wtf2.bed.flo)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed.flo)
+
+```  
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf2.bed.flo.loc = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms, by = waterfront) + 
+    view + 
+    s(sqft_basement, by = waterfront) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf2.bed.flo.loc)
+anova(model.gam.liv.bat.view.cbase.wtf2.bed.flo.loc)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed.flo)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed.flo.loc)
+
+```  
+
+Adding Lat and Long decreased the AIC value from 14068 to 603 (96% less) and explained 27% of the deviance. And the interaction with waterfront doesnt seem to be relevant anymore. 
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf.bed.flo.loc = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc)
+anova(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc)
+AIC(model.gam.liv.bat.view.cbase.wtf2.bed.flo.loc)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc)
+
+```
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long) + 
+    s(zipcode)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip)
+anova(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip)
+
+```
+
+Adding zipcode reduced the AIC score from 618 to 110 (85% less)  
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long) + 
+    s(zipcode) + 
+    s(yr_built) + 
+    s(yr_renovated)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr)
+anova(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr)
+
+```  
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long) + 
+    s(zipcode) + 
+    s(yr_built) + 
+    s(yr_renovated) + 
+    condition
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond)
+anova(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond)
+```  
+
+```{r}
+model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot = mgcv::gam(
+  log(price) ~ s(sqft_living15) + 
+    s(bathrooms) + 
+    view + 
+    s(sqft_basement) + 
+    waterfront  + 
+    s(bedrooms) + 
+    floors + 
+    s(lat) +
+    s(long) + 
+    s(zipcode) + 
+    s(yr_built) + 
+    s(yr_renovated) + 
+    condition + 
+    s(sqft_lot15)
+  , data = db_train)
+
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot)
+anova(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond)
+AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot)
+```
+
+## AIC Summary 
+```{r}
+library(formula.tools)
+
+paste(model.gam.liv$formula %>% as.character(), "|AIC:", AIC(model.gam.liv))
+paste(model.gam.liv.bat$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat))
+paste(model.gam.liv.bat.view$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view))
+paste(model.gam.liv.bat.view.cbase$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase))
+paste(model.gam.liv.bat.view.cbase.wtf$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf))
+paste(model.gam.liv.bat.view.cbase.wtf2$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf2))
+paste(model.gam.liv.bat.view.cbase.wtf2.bed$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf2.bed))
+paste(model.gam.liv.bat.view.cbase.wtf2.bed.flo$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf2.bed.flo))
+paste(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc))
+paste(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip))
+paste(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr))
+paste(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond))
+paste(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot$formula %>% as.character(), "|AIC:", AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot))
+
+```
+
+
+```{r}
+db_test = db_test_raw %>% 
+  mutate(
+    bathrooms = as.numeric(bathrooms)
+    , floors = as.numeric(floors)
+    , waterfront = as.factor(as.numeric(as.factor(waterfront)) - 1)
+    , lat = as.numeric(lat)
+    , long = as.numeric(long)
+  ) %>% 
+  mutate(
+    lat = lat / (roundUp(abs(lat / 47))/10)
+    , long = long / (roundUp(abs(long / 120))/10)
+  ) %>% 
+  dplyr::select(-id, -date) %>% 
+  data.frame()
+```
+
+## Accuracy over test set
+```{r}
+db_test = db_test %>% 
+  mutate(
+    sqft_living = log(sqft_living)
+    , sqft_lot = log(sqft_lot)
+    , sqft_above = log(sqft_above)
+    , sqft_living15 = log(sqft_living15)
+    , sqft_lot15 = log(sqft_lot15)
+  )
+
+db_test$prediction = predict(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot, db_test)
+
+
+db_test %>% ggplot(aes(x = log(price), y = prediction)) +
+  geom_point() +
+  CSGo::theme_csgo()
+```
