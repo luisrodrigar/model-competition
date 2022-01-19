@@ -686,7 +686,9 @@ pairs(data %>% select_if(is.numeric) %>% select(-sqft_above))
 ```
 
 
-## Modelling
+# Modelling
+
+## Linear Model
 
 In this session we will train a linear regression to predict our target variable *price*. We will also run a step wise selection.
 
@@ -733,7 +735,7 @@ mod$results
 
 ```
 
-## Model Evaluation
+### Model Evaluation
 
 In this session we are going to apply the model above in our test data set to see how it performs in a new data set.
 
@@ -784,15 +786,15 @@ db_test_linear %>% ggplot(aes(x = price, y = pred)) +
 
 > As we can see above, our lineal model tends to predict the prize of the property larger than the actual price. Ideally, the points should be around the diagonal and in this case most of them are above it.
 
-## Conclusion 
+### Conclusion 
 
 The model developed to predict the price was considered satisfactory. However the use of _generalized additive models_ could improve the results, as there are some predictors that they don't have a linear relationship with the response.
 
-# Generalized Additive Models
+## Generalized Additive Models
 
 As we saw in the previous step, we realized that the relationship between the predictors and the response variable, in many cases, is not linear. Therefore, we are going to using the _Generalized Additive Models_ to see if this type of regression fits the data properly. 
 
-## Densities
+### Densities
 
 Let's plot the densities function for each predictor at the very beginning: 
 
@@ -838,7 +840,7 @@ db_train %>%
 
 ```
 
-## Dealing with Collinearity 
+### Dealing with Collinearity 
 
 As we can see in the next correlation plot, there are some variables that are high correlated. Thus, in order to prevent collinearity, we are going to remove some variables:
 
@@ -857,7 +859,7 @@ corrplot(
 db_train = db_train %>% dplyr::select(-grade, -sqft_above, -sqft_lot, -sqft_living)
 ```
 
-## Relationship between response and covariates
+### Relationship between response and covariates
 
 In the next plots, we are going to see relationship between the response and the covariates.
 
@@ -875,7 +877,7 @@ db_train %>%
 
 > As we can see in the plots above, there is no linear relationship between price and the covariates. 
 
-## Model Building (Step by step)
+### Model Building (Step by step)
 
 Let's train a model which provides a good behavior under the conditions mentioned above.
 
@@ -1163,7 +1165,10 @@ AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond)
 AIC(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot)
 ```
 
-## AIC Summary 
+### AIC Summary
+
+We are going to show the summary of the AIC procedure we have followed:
+
 ```{r}
 library(formula.tools)
 
@@ -1201,7 +1206,8 @@ db_test = db_test_raw %>%
   data.frame()
 ```
 
-## Accuracy over test set
+### Accuracy over test set
+
 ```{r}
 db_test = db_test %>% 
   mutate(
@@ -1218,4 +1224,12 @@ db_test$prediction = predict(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr
 db_test %>% ggplot(aes(x = log(price), y = prediction)) +
   geom_point() +
   CSGo::theme_csgo()
+```
+
+> This model predicts the price of the property really well as we can see in the scatter plot showed above. The points generated from the actual value and the predicted are around the diagonal, being a really good sign.
+
+This would be our best hedonic pricing model!
+
+```{r}
+summary(model.gam.liv.bat.view.cbase.wtf.bed.flo.loc.zip.yr.cond.lot)
 ```
