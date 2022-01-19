@@ -683,7 +683,6 @@ corrplot::corrplot.mixed(cor_result)
 
 ```{r}
 library(reshape2)
-
 db_train = db_train %>% 
   mutate(
     sqft_living = log(sqft_living)
@@ -700,9 +699,7 @@ db_train = db_train %>%
     , long = as.numeric(long)
     , price = log(price)
   ) 
-
 sort(unique(db_train$zipcode))
-
 db_train %>% 
   select_if(is.numeric) %>%
   melt() %>% 
@@ -711,13 +708,11 @@ db_train %>%
   ) + 
   geom_density() +
   facet_wrap(~variable, scales = "free")
-
 ifelse(
   db_train$lat > 100
   , 1
   , 0
 )
-
 #table(substr(db_train$zipcode, 1, 3))
 ```
 
