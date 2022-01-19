@@ -445,7 +445,7 @@ db_train_linear <- db_train_linear %>%
   ))
 
 # bar plot
-db_train %>%
+db_train_linear %>%
   ggplot(aes(x = bathrooms_cat, y = price, fill = bathrooms_cat)) +
   geom_boxplot(color = "black") +
   ggtitle("Price by Number of bathrooms") +
@@ -733,23 +733,24 @@ form <- formula(price ~ sqft_living + sqft_basement + sqft_lot + grade_cat + vie
 
 ```
 
-Now let's train the model.
+Now let's train the model using a linear regression method and select only the most significant predictors:
 
-```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
+```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE, CACHE=TRUE}
 # model
 #lmStepAIC
 set.seed(1992)
 mod <- train(
   form,
   data = db_train_linear, 
-  method = "lmStepAIC")
+  method = "lmStepAIC",
+  trace=FALSE)
 
 summary(mod)
 
 
 ```
 
-So, the final model will be:
+So, the linear model will be:
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 
@@ -773,13 +774,15 @@ First let's transform some categories we created before in our test data set, an
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 
-db_test <- db_test %>%
+db_test_linear <- db_test_raw %>%
   mutate(
     bedrooms_cat = ifelse(bedrooms >=8, "more than 8", as.factor(bedrooms)),
     
     bathrooms = as.numeric(bathrooms),
     
     view = as.factor(view),
+    
+    waterfront = as.factor(as.numeric(as.factor(waterfront)) - 1),
     
     bathrooms_cat = as.factor(case_when(
       bathrooms >= 4 ~ "more than 4",
@@ -796,9 +799,9 @@ db_test <- db_test %>%
     )
   )
 
-db_test <- db_test %>%
+db_test_linear <- db_test_linear %>%
   mutate(
-    pred = predict(mod, db_test)
+    pred = predict(mod, db_test_linear)
   )
 
 ```
@@ -807,16 +810,17 @@ Now let's plot the predicted vs observed.
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 
-db_test %>% ggplot(aes(x = price, y = pred)) +
+db_test_linear %>% ggplot(aes(x = price, y = pred)) +
   geom_point() +
   CSGo::theme_csgo()
 
 ```
 
+> As we can see above, our lineal model tends to predict the prize of the property larger than the actual price. Ideally, the points should be around the diagonal and in this case most of them are above it.
 
 ## Conclusion 
 
-The model developed to predict the price was considered satisfactory. However the use and understanding of new variables or transformation would improve our results.
+The model developed to predict the price was considered satisfactory. However the use of _generalized additive models_ could improve the results, as there are some predictors that they don't have a linear relationship with the response.
 
 # Generalized Additive Models
 
@@ -901,7 +905,8 @@ db_train %>%
   geom_smooth() +
   facet_wrap(~variable, scale = "free")
 ```  
-As we can see in the plots above, there is no linear relationship between price and the covariates. 
+
+> As we can see in the plots above, there is no linear relationship between price and the covariates. 
 
 ## Model Building (Step by step)
 
@@ -933,6 +938,7 @@ visreg(model.gam.liv.bat, "sqft_living15")
 visreg(model.gam.liv.bat, "bathrooms")
 ```
 
+> Above we can see the estimated smooth effect _s_ of _sqft_living_ and _bathrooms_.
 
 ```{r}
 model.gam.liv.bat.view = mgcv::gam(
@@ -956,6 +962,9 @@ rbind(
   , c("~living15 + bathrooms + view", AIC(model.gam.liv.bat.view))
 )
 ```
+
+> In the previous model, we have added the variable view as a predictor in the model.
+
 ```{r}
 model.gam.liv.bat.view.cbase = mgcv::gam(
   log(price) ~ s(sqft_living15) + 
