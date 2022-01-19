@@ -395,13 +395,13 @@ Below is presented the boxplot of price by bedrooms.
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 
-db_train <- db_train %>%
+db_train_linear <- db_train %>%
   mutate(
     bedrooms_cat = ifelse(bedrooms >=8, "more than 8", as.factor(bedrooms))
   )
 
 # bar plot
-db_train %>%
+db_train_linear %>%
   ggplot(aes(x = bedrooms_cat, y = price, fill = bedrooms_cat)) +
   geom_boxplot(color = "black") +
   ggtitle("Price by Number of bedrooms") +
@@ -434,7 +434,7 @@ Below is presented the boxplot of price by bathrooms
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 
-db_train <- db_train %>%
+db_train_linear <- db_train_linear %>%
   mutate(
     bathrooms = as.numeric(bathrooms),
     
@@ -550,13 +550,13 @@ table(db_train$view)
 Below is presented the boxplot of price by view.
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
-db_train <- db_train %>%
+db_train_linear <- db_train_linear %>%
   mutate(
    view = as.factor(view)
   )
 
 # bar plot
-db_train %>%
+db_train_linear %>%
   ggplot(aes(x = view, y = price, fill = view)) +
   geom_boxplot(color = "black") +
   ggtitle("Price by view") +
@@ -588,13 +588,13 @@ table(db_train$condition)
 > Based on the table above we decided to joing the categories 1 and 2 into the same category.
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
-db_train <- db_train %>%
+db_train_linear <- db_train_linear %>%
   mutate(
    condition_cat = ifelse(as.numeric(condition) <= 2, "less than 2", as.factor(condition))
   )
 
 # bar plot
-db_train %>%
+db_train_linear %>%
   ggplot(aes(x = condition_cat, y = price, fill = condition_cat)) +
   geom_boxplot(color = "black") +
   ggtitle("Price by condition") +
@@ -626,7 +626,7 @@ table(db_train$grade)
 > Based on the table above we decided to joing the categories 3, 4 and 5 into the same category and the 11, 12, 13 in other category.
 
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
-db_train <- db_train %>%
+db_train_linear <- db_train_linear %>%
   mutate(
     grade = as.numeric(grade),
     
@@ -637,7 +637,7 @@ db_train <- db_train %>%
   ))
 
 # bar plot
-db_train %>%
+db_train_linear %>%
   ggplot(aes(x = as.factor(grade_cat), y = price, fill = as.factor(grade_cat))) +
   geom_boxplot(color = "black") +
   ggtitle("Price by grade") +
@@ -661,7 +661,7 @@ Now we are going to perform a correlation study to see if the are any continuous
 ```{r, eval=TRUE, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 require(corrplot)
 
-db_train_contin <- db_train %>%
+db_train_contin <- db_train_linear %>%
   select(
     price,
     sqft_living,
@@ -741,7 +741,7 @@ Now let's train the model.
 set.seed(1992)
 mod <- train(
   form,
-  data = db_train, 
+  data = db_train_linear, 
   method = "lmStepAIC")
 
 summary(mod)
