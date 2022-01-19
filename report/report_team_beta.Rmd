@@ -1,6 +1,6 @@
 ---
 title: "Modelling Competition- Team Beta"
-author: "Adson Costanzi, Javier Fong, LA, Javich"
+author: "Adson Costanzi, Javier Fong, Luis Ángel Rodríguez, Javier Muñoz, Hongfei Guo"
 date: "January 16^th^, 2021"
 output: 
   html_document:
